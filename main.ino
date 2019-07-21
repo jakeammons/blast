@@ -1,77 +1,23 @@
-#include <SPI.h>
 #include <AMIS30543.h>
+#include <Servo.h>
+#include <SPI.h>
 
-#define MANUAL_PIN 18
-#define BLAST_PIN 19
-#define RINSE_PIN 20
+#define MAN_BUTT 38
+#define MAN_LED 39
+#define BLAST_BUTT 40
+#define BLAST_LED 41
+#define RINSE_BUTT 42
+#define RINSE_LED 43
+#define SOL_A 44
+#define SOL_B 45
+#define MEDIA_SIG 46
+#define VAC 47
+#define STEP_NEXT 49
+#define STEP_DIR 50
+#define STEP_SLAVE 50
 
-const uint8_t amisDirPin = 2;
-const uint8_t amisStepPin = 3;
-const uint8_t amisSlaveSelect = 4;
-
-AMIS30543 stepper;
-
-void interrupt_setup()
-{
-    pinMode(MANUAL_PIN, INPUT_PULLUP);
-    pinMode(BLAST_PIN, INPUT_PULLUP);
-    pinMode(RINSE_PIN, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(MANUAL_PIN), toggle_manual, FALLING);
-    attachInterrupt(digitalPinToInterrupt(BLAST_PIN), toggle_blast, FALLING);
-    attachInterrupt(digitalPinToInterrupt(RINSE_PIN), toggle_rinse, FALLING);
-}
-
-void stepper_setup()
-{
-    SPI.begin();
-    stepper.init(amisSlaveSelect);
-
-    // Drive the NXT/STEP and DIR pins low initially.
-    digitalWrite(amisStepPin, LOW);
-    pinMode(amisStepPin, OUTPUT);
-    digitalWrite(amisDirPin, LOW);
-    pinMode(amisDirPin, OUTPUT);
-
-    // Give the driver some time to power up.
-    delay(1);
-
-    // Reset the driver to its default settings.
-    stepper.resetSettings();
-
-    // Set the current limit.  You should change the number here to
-    // an appropriate value for your particular system.
-    stepper.setCurrentMilliamps(2000);
-
-    // Set the number of microsteps that correspond to one full step.
-    stepper.setStepMode(0);
-
-    // Enable the motor outputs.
-    stepper.enableDriver();
-
-    // The NXT/STEP pin must not change for at least 0.5
-    // microseconds before and after changing the DIR pin.
-    delayMicroseconds(1);
-    digitalWrite(amisDirPin, LOW);
-    delayMicroseconds(1);
-}
-
-// Sends a pulse on the NXT/STEP pin to tell the driver to take
-// one step, and also delays to control the speed of the motor.
-void step(int delay_length)
-{
-    // The NXT/STEP minimum high pulse width is 2 microseconds.
-    digitalWrite(amisStepPin, HIGH);
-    delayMicroseconds(3);
-    digitalWrite(amisStepPin, LOW);
-    delayMicroseconds(3);
-
-    // The delay here controls the stepper motor's speed.  You can
-    // increase the delay to make the stepper motor go slower.  If
-    // you decrease the delay, the stepper motor will go fast, but
-    // there is a limit to how fast it can go before it starts
-    // missing steps.
-    delayMicroseconds(delay_length);
-}
+#define MEDIA_OPEN 20
+#define MEDIA_CLOSED 90
 
 enum states {
   idle,
@@ -82,6 +28,59 @@ enum states {
 
 volatile states current_state;
 
+Servo media_servo;
+AMIS30543 basket_stepper;
+
+void io_setup()
+{
+    pinMode(MAN_BUTT, INPUT_PULLUP);
+    pinMode(MAN_LED, OUTPUT);
+    pinMode(BLAST_BUTT, INPUT_PULLUP);
+    pinMode(BLAST_LED, OUTPUT);
+    pinMode(RINSE_BUTT, INPUT_PULLUP);
+    pinMode(RINSE_LED, OUTPUT);
+    pinMode(SOL_A, OUTPUT);
+    pinMode(SOL_B, OUTPUT);
+    pinMode(MEDIA_SIG, OUTPUT);
+    pinMode(VAC, OUTPUT);
+    pinMode(STEP_NEXT, OUTPUT);
+    pinMode(STEP_DIR, OUTPUT);
+    pinMode(STEP_SLAVE, OUTPUT);
+    attachInterrupt(digitalPinToInterrupt(MAN_BUTT), toggle_manual, RISING);
+    attachInterrupt(digitalPinToInterrupt(BLAST_BUTT), toggle_blast, RISING);
+    attachInterrupt(digitalPinToInterrupt(RINSE_BUTT), toggle_rinse, RISING);
+}
+
+void servo_setup() {
+  media_servo.attach(MEDIA_SIG);
+}
+
+void stepper_setup()
+{
+    SPI.begin();
+    basket_stepper.init(STEP_SLAVE);
+    digitalWrite(STEP_NEXT, LOW);
+    digitalWrite(STEP_DIR, LOW);
+    delay(1);
+    basket_stepper.resetSettings();
+    basket_stepper.setCurrentMilliamps(2000);
+    basket_stepper.setStepMode(0);
+    basket_stepper.enableDriver();
+    delayMicroseconds(1);
+    digitalWrite(STEP_DIR, LOW);
+    delayMicroseconds(1);
+}
+
+void step(int speed_delay)
+{
+    digitalWrite(STEP_NEXT, HIGH);
+    delayMicroseconds(3);
+    digitalWrite(STEP_NEXT, LOW);
+    delayMicroseconds(3);
+    delayMicroseconds(speed_delay);
+}
+
+
 void toggle_manual() {current_state == manual ? current_state = idle : current_state = manual;}
 
 void toggle_blast() {current_state == blast ? current_state = idle : current_state = blast;}
@@ -91,25 +90,46 @@ void toggle_rinse() {current_state == rinse ? current_state = idle : current_sta
 void idle_state()
 {
     Serial.print("Idle State\n");
+    digitalWrite(MAN_LED, LOW);
+    digitalWrite(BLAST_LED, LOW);
+    digitalWrite(RINSE_LED, LOW);
     // Turn off vacuum
+    digitalWrite(VAC, LOW);
     // Turn off air
+    digitalWrite(SOL_A, LOW);
+    digitalWrite(SOL_B, LOW);
     // Turn off media
+    media_servo.write(MEDIA_CLOSED);
 }
 
 void manual_state()
 {
     Serial.print("Manual State\n");
+    digitalWrite(MAN_LED, HIGH);
+    digitalWrite(BLAST_LED, LOW);
+    digitalWrite(RINSE_LED, LOW);
     // Turn on vacuum
+    digitalWrite(VAC, HIGH);
     // Turn off air
+    digitalWrite(SOL_A, LOW);
+    digitalWrite(SOL_B, LOW);
     // Turn off media
+    media_servo.write(MEDIA_CLOSED);
 }
 
 void blast_state()
 {
     Serial.print("Blast State\n");
+    digitalWrite(MAN_LED, LOW);
+    digitalWrite(BLAST_LED, HIGH);
+    digitalWrite(RINSE_LED, LOW);
     // Turn on vacuum
+    digitalWrite(VAC, HIGH);
     // Turn on air
+    digitalWrite(SOL_A, LOW);
+    digitalWrite(SOL_B, HIGH);
     // Turn on media
+    media_servo.write(MEDIA_OPEN);
     unsigned long start_time = millis();
     unsigned long stage_1_end_time = start_time + 1000 * 60 * 8;
     unsigned long stage_2_end_time = start_time + 1000 * 60 * 10;
@@ -122,9 +142,16 @@ void blast_state()
 void rinse_state()
 {
     Serial.print("Rinse State\n");
+    digitalWrite(MAN_LED, LOW);
+    digitalWrite(BLAST_LED, LOW);
+    digitalWrite(RINSE_LED, HIGH);
     // Turn on vacuum
+    digitalWrite(VAC, HIGH);
     // Turn on air
+    digitalWrite(SOL_A, LOW);
+    digitalWrite(SOL_B, HIGH);
     // Turn off media
+    media_servo.write(MEDIA_CLOSED);
     unsigned long start_time = millis();
     unsigned long end_time = start_time + 1000 * 60 * 5;
     while (millis() < end_time) {step(200);}
@@ -133,8 +160,9 @@ void rinse_state()
 
 void setup()
 {
-    current_state = idle;
-    interrupt_setup();
+    current_state = blast;
+    io_setup();
+    servo_setup();
     stepper_setup();
     Serial.begin(9600);
 }
@@ -155,5 +183,4 @@ void loop()
             rinse_state();
             break;
     }
-    
 }
