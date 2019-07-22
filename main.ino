@@ -22,6 +22,7 @@
 #define BASKET_SPEED 600
 
 enum states {
+    startup,
     idle,
     manual,
     blast,
@@ -70,25 +71,6 @@ void motor_setup()
     delayMicroseconds(1);
 }
 
-void start_up()
-{
-    int delay_length = 250;
-    for (int i = 0; i < 10; i++) {
-        digitalWrite(MAN_LED, HIGH);
-        delay(delay_length);
-        digitalWrite(MAN_LED, LOW);
-        digitalWrite(BLAST_LED, HIGH);
-        delay(delay_length);
-        digitalWrite(BLAST_LED, LOW);
-        digitalWrite(RINSE_LED, HIGH);
-        delay(delay_length);
-        digitalWrite(RINSE_LED, LOW);
-        digitalWrite(BLAST_LED, HIGH);
-        delay(delay_length);
-        digitalWrite(BLAST_LED, LOW);
-    }
-}
-
 void step(int speed_delay)
 {
     digitalWrite(STEP_NEXT, HIGH);
@@ -98,6 +80,10 @@ void step(int speed_delay)
     delayMicroseconds(speed_delay);
 }
 
+void toggle_startup()
+{
+    current_state == startup ? current_state = idle : current_state = startup;
+}
 
 void toggle_manual()
 {
@@ -130,6 +116,35 @@ void toggle_rinse()
         current_state == rinse ? current_state = idle : current_state = rinse;
     }
     last_interrupt_time = interrupt_time;
+}
+
+void startup_state()
+{
+    Serial.print("Startup State\n");
+    // Turn off vacuum
+    digitalWrite(VAC, LOW);
+    // Turn off air
+    digitalWrite(SOL_A, LOW);
+    digitalWrite(SOL_B, LOW);
+    // Turn off media
+    media_servo.write(MEDIA_CLOSED);
+    int delay_length = 250;
+    for (int i = 0; current_state == startup && i < 10; i++) {
+        digitalWrite(MAN_LED, HIGH);
+        delay(delay_length);
+        digitalWrite(MAN_LED, LOW);
+        digitalWrite(BLAST_LED, HIGH);
+        delay(delay_length);
+        digitalWrite(BLAST_LED, LOW);
+        digitalWrite(RINSE_LED, HIGH);
+        delay(delay_length);
+        digitalWrite(RINSE_LED, LOW);
+        digitalWrite(BLAST_LED, HIGH);
+        delay(delay_length);
+        digitalWrite(BLAST_LED, LOW);
+    }
+    if (current_state != startup) return;
+    else toggle_startup();
 }
 
 void idle_state()
@@ -211,7 +226,7 @@ void rinse_state()
 
 void setup()
 {
-    current_state = idle;
+    current_state = startup;
     io_setup();
     motor_setup();
     Serial.begin(9600);
@@ -220,6 +235,9 @@ void setup()
 void loop()
 {
     switch (current_state) {
+        case startup:
+            startup_state();
+            break;
         case idle:
             idle_state();
             break;
