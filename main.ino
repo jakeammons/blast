@@ -2,6 +2,7 @@
 #include <Servo.h>
 #include <SPI.h>
 
+#define INTERLOCK 18
 #define MAN_BUTT 19
 #define MAN_LED 39
 #define BLAST_BUTT 20
@@ -36,6 +37,7 @@ AMIS30543 basket_stepper;
 
 void io_setup()
 {
+    pinMode(INTERLOCK, INPUT_PULLUP);
     pinMode(MAN_BUTT, INPUT_PULLUP);
     pinMode(MAN_LED, OUTPUT);
     pinMode(BLAST_BUTT, INPUT_PULLUP);
@@ -49,6 +51,7 @@ void io_setup()
     pinMode(STEP_NEXT, OUTPUT);
     pinMode(STEP_DIR, OUTPUT);
     pinMode(STEP_SLAVE, OUTPUT);
+    attachInterrupt(digitalPinToInterrupt(INTERLOCK), interlock, RISING);
     attachInterrupt(digitalPinToInterrupt(MAN_BUTT), toggle_manual, LOW);
     attachInterrupt(digitalPinToInterrupt(BLAST_BUTT), toggle_blast, LOW);
     attachInterrupt(digitalPinToInterrupt(RINSE_BUTT), toggle_rinse, LOW);
@@ -78,6 +81,17 @@ void step(int speed_delay)
     digitalWrite(STEP_NEXT, LOW);
     delayMicroseconds(3);
     delayMicroseconds(speed_delay);
+}
+
+void interlock()
+{
+    static unsigned long last_interrupt_time = 0;
+    unsigned long interrupt_time = millis();
+    if (interrupt_time - last_interrupt_time > 200) 
+    {
+        current_state = idle;
+    }
+    last_interrupt_time = interrupt_time;
 }
 
 void toggle_startup()
@@ -249,6 +263,9 @@ void loop()
             break;
         case rinse:
             rinse_state();
+            break;
+        default:
+            idle_state();
             break;
     }
 }
