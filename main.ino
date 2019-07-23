@@ -31,6 +31,7 @@ enum states {
 };
 
 volatile states current_state;
+volatile bool window_open;
 
 Servo media_servo;
 AMIS30543 basket_stepper;
@@ -51,7 +52,7 @@ void io_setup()
     pinMode(STEP_NEXT, OUTPUT);
     pinMode(STEP_DIR, OUTPUT);
     pinMode(STEP_SLAVE, OUTPUT);
-    attachInterrupt(digitalPinToInterrupt(INTERLOCK), interlock, RISING);
+    attachInterrupt(digitalPinToInterrupt(INTERLOCK), interlock, CHANGE);
     attachInterrupt(digitalPinToInterrupt(MAN_BUTT), toggle_manual, LOW);
     attachInterrupt(digitalPinToInterrupt(BLAST_BUTT), toggle_blast, LOW);
     attachInterrupt(digitalPinToInterrupt(RINSE_BUTT), toggle_rinse, LOW);
@@ -89,7 +90,7 @@ void interlock()
     unsigned long interrupt_time = millis();
     if (interrupt_time - last_interrupt_time > 200) 
     {
-        current_state = idle;
+        window_open = digitalRead(INTERLOCK); 
     }
     last_interrupt_time = interrupt_time;
 }
@@ -183,7 +184,7 @@ void manual_state()
     digitalWrite(BLAST_LED, LOW);
     digitalWrite(RINSE_LED, LOW);
     // Turn on vacuum
-    digitalWrite(VAC, HIGH);
+    window_open ? digitalWrite(VAC, LOW) : digitalWrite(VAC, HIGH);
     // Turn off air
     digitalWrite(SOL_A, LOW);
     digitalWrite(SOL_B, LOW);
@@ -197,22 +198,21 @@ void blast_state()
     digitalWrite(MAN_LED, LOW);
     digitalWrite(BLAST_LED, HIGH);
     digitalWrite(RINSE_LED, LOW);
-    // Turn on vacuum
-    digitalWrite(VAC, HIGH);
-    // Turn on air
-    digitalWrite(SOL_A, LOW);
-    digitalWrite(SOL_B, HIGH);
-    // Turn on media
     media_servo.write(MEDIA_OPEN);
     unsigned long start_time = millis();
     unsigned long stage_1_duration = 480000; // 8 minutes
     unsigned long stage_2_duration = 120000; // 2 minutes
     unsigned long stage_1_end_time = start_time + stage_1_duration;
     unsigned long stage_2_end_time = start_time + stage_1_duration + stage_2_duration;
-    while (current_state == blast && millis() < stage_1_end_time) {step(BASKET_SPEED);}
-    // Turn off media
+    while (current_state == blast && millis() < stage_1_end_time) {
+      digitalWrite(VAC, !window_open);
+      digitalWrite(SOL_B, !window_open);
+    }
     media_servo.write(MEDIA_CLOSED);
-    while (current_state == blast && millis() < stage_2_end_time) {step(BASKET_SPEED);}
+    while (current_state == blast && millis() < stage_2_end_time) {
+      digitalWrite(VAC, !window_open);
+      digitalWrite(SOL_B, !window_open);
+    }
     if (current_state != blast) return;
     else toggle_blast();
 }
@@ -223,17 +223,14 @@ void rinse_state()
     digitalWrite(MAN_LED, LOW);
     digitalWrite(BLAST_LED, LOW);
     digitalWrite(RINSE_LED, HIGH);
-    // Turn on vacuum
-    digitalWrite(VAC, HIGH);
-    // Turn on air
-    digitalWrite(SOL_A, LOW);
-    digitalWrite(SOL_B, HIGH);
-    // Turn off media
     media_servo.write(MEDIA_CLOSED);
     unsigned long start_time = millis();
     unsigned long duration = 300000; // 5 minutes
     unsigned long end_time = start_time + duration;
-    while (current_state == rinse && millis() < end_time) {step(BASKET_SPEED);}
+    while (current_state == rinse && millis() < end_time) {
+      digitalWrite(VAC, !window_open);
+      digitalWrite(SOL_B, !window_open);
+    }
     if (current_state != rinse) return;
     else toggle_rinse();
 }
@@ -243,6 +240,7 @@ void setup()
     current_state = startup;
     io_setup();
     motor_setup();
+    window_open = digitalRead(INTERLOCK);
     Serial.begin(9600);
 }
 
