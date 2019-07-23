@@ -207,11 +207,13 @@ void blast_state()
     while (current_state == blast && millis() < stage_1_end_time) {
       digitalWrite(VAC, !window_open);
       digitalWrite(SOL_B, !window_open);
+      if (!window_open) step(BASKET_SPEED);
     }
     media_servo.write(MEDIA_CLOSED);
     while (current_state == blast && millis() < stage_2_end_time) {
       digitalWrite(VAC, !window_open);
       digitalWrite(SOL_B, !window_open);
+      if (!window_open) step(BASKET_SPEED);
     }
     if (current_state != blast) return;
     else toggle_blast();
@@ -230,6 +232,7 @@ void rinse_state()
     while (current_state == rinse && millis() < end_time) {
       digitalWrite(VAC, !window_open);
       digitalWrite(SOL_B, !window_open);
+      if (!window_open) step(BASKET_SPEED);
     }
     if (current_state != rinse) return;
     else toggle_rinse();
