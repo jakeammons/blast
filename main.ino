@@ -19,7 +19,7 @@
 #define STEP_SLAVE 53
 
 #define MEDIA_OPEN 10
-#define MEDIA_CLOSED 80
+#define MEDIA_CLOSED 85
 
 #define BASKET_SPEED 600
 
