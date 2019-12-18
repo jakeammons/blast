@@ -137,13 +137,9 @@ void toggle_rinse()
 
 void startup_state()
 {
-    Serial.print("Startup State\n");
-    // Turn off vacuum
     digitalWrite(VAC, LOW);
-    // Turn off air
     digitalWrite(SOL_A, LOW);
     digitalWrite(SOL_B, LOW);
-    // Turn off media
     media_servo.write(MEDIA_CLOSED);
     int delay_length = 250;
     for (int i = 0; current_state == startup && i < 10; i++) {
@@ -166,7 +162,6 @@ void startup_state()
 
 void idle_state()
 {
-    Serial.print("Idle State\n");
     digitalWrite(MAN_LED, LOW);
     digitalWrite(BLAST_LED, LOW);
     digitalWrite(RINSE_LED, LOW);
@@ -179,7 +174,6 @@ void idle_state()
 
 void manual_state()
 {
-    Serial.print("Manual State\n");
     digitalWrite(MAN_LED, HIGH);
     digitalWrite(BLAST_LED, LOW);
     digitalWrite(RINSE_LED, LOW);
@@ -192,7 +186,6 @@ void manual_state()
 
 void blast_state()
 {
-    Serial.print("Blast State\n");
     digitalWrite(MAN_LED, LOW);
     digitalWrite(BLAST_LED, HIGH);
     digitalWrite(RINSE_LED, LOW);
@@ -220,7 +213,6 @@ void blast_state()
 
 void rinse_state()
 {
-    Serial.print("Rinse State\n");
     digitalWrite(MAN_LED, LOW);
     digitalWrite(BLAST_LED, LOW);
     digitalWrite(RINSE_LED, HIGH);
