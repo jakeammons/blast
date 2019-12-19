@@ -236,7 +236,6 @@ void setup()
     io_setup();
     motor_setup();
     interlock_open = digitalRead(DOOR_INTERLOCK) | digitalRead(WINDOW_INTERLOCK);
-    Serial.begin(9600);
 }
 
 void loop()
