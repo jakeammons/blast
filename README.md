@@ -1,2 +1,2 @@
 # blast
-This is firmware for an automated sandblasting cabinet.
+This is firmware for an automated media blasting cabinet.
